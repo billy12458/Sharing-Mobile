@@ -1,29 +1,62 @@
 <template>
   <MobileLayout>
     <div class="page">
-      <div class="page-content">
-        <div class="section-title">{{ t('navigation.extractCode') }}</div>
-        <div class="card panel">
-          <van-field v-model="code" label="Code" placeholder="Enter extraction code" />
-          <van-button type="primary" block round @click="showToast(t('home.skeleton'))">{{ t('common.confirm') }}</van-button>
-        </div>
-      </div>
+      <br />
+      <ExtractInput
+        v-if="!detail"
+        @success="queryDetail"
+      />
+
+      <ExtractDetail
+        v-else
+        :file="detail"
+        :code="code"
+        @clear="clearResult"
+      />
+
+      <RecommendFileList
+        :files="recommendFiles"
+      />
+
     </div>
   </MobileLayout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { showToast } from 'vant'
-import { useI18n } from 'vue-i18n'
+import {onMounted,ref} from 'vue'
+
 import MobileLayout from '@/layouts/MobileLayout.vue'
+import ExtractInput from '@/components/extract/ExtractInput.vue'
+import ExtractDetail from '@/components/extract/ExtractDetail.vue'
+import RecommendFileList from '@/components/RecommendFileList.vue'
 
-const { t } = useI18n()
-const code = ref('')
-</script>
+import {
+  getFileDetailByCode
+} from '@/api/extract'
 
-<style scoped>
-.panel {
-  padding: 12px;
+import {
+  getRecommendFiles
+} from '@/api/recommend'
+
+
+const code=ref('')
+const detail=ref<any>(null)
+const recommendFiles=ref<any[]>([])
+
+
+async function queryDetail(value:string){
+  code.value=value
+  detail.value=await getFileDetailByCode(value)
 }
-</style>
+
+
+function clearResult(){
+  detail.value=null
+  code.value=''
+}
+
+
+onMounted(async()=>{
+  recommendFiles.value=await getRecommendFiles()
+})
+</script>

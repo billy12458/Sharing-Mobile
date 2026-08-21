@@ -3,6 +3,8 @@ import {
   createWebHistory,
   type RouteRecordRaw,
 } from "vue-router";
+import i18n from "@/i18n";
+import { tags, DEFAULT_TAG } from "@/constants/tags";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -61,9 +63,16 @@ const routes: RouteRecordRaw[] = [
     meta: { title: "ranking" },
   },
   {
+    path: "/Tags",
+    name: "tags",
+    redirect: "/Tags/其他",
+  },
+  {
     path: "/Tags/:tag",
-    name: "Tags",
+    name: "tag-detail",
     component: () => import("@/views/Tags.vue"),
+    props: true,
+    meta: { title: "tags" },
   },
   {
     path: "/documents",
@@ -93,25 +102,32 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 });
 
-const titleMap: Record<string, string> = {
-  home: "Quicky Sharing",
-  files: "My Files - Quicky Sharing",
-  search: "Search - Quicky Sharing",
-  profile: "Profile - Quicky Sharing",
-  login: "Log in - Quicky Sharing",
-  register: "Register - Quicky Sharing",
-  extract: "Extract Code - Quicky Sharing",
-  ranking: "Ranking - Quicky Sharing",
-  tags: "Tags - Quicky Sharing",
-  documents: "Documents - Quicky Sharing",
-  suggestions: "Suggestions - Quicky Sharing",
-  photos: "Photos - Quicky Sharing",
-  messages: "Messages - Quicky Sharing",
-};
+router.beforeEach((to) => {
+  if (to.name === "tag-detail") {
+    const tag = String(to.params.tag);
+
+    if (!tags.includes(tag as any)) {
+      return {
+        name: "tag-detail",
+        params: {
+          tag: DEFAULT_TAG,
+        },
+      };
+    }
+  }
+});
 
 router.afterEach((to) => {
   const key = String(to.meta.title || "home");
-  document.title = titleMap[key] || "Quicky Sharing";
+
+  if (to.name === "tag-detail" && to.params.tag) {
+    document.title = i18n.global.t("app.pageTitle.tag", {
+      tag: String(to.params.tag),
+    });
+    return;
+  }
+
+  document.title = i18n.global.t(`app.pageTitle.${key}`);
 });
 
 export default router;

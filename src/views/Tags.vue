@@ -260,7 +260,7 @@ async function selectTag(tag: string) {
   }
 
   await router.push({
-    name: 'Tags',
+    name: 'tag-detail',
     params: {
       tag,
     },
@@ -282,7 +282,7 @@ async function goHome() {
 
 async function goTags() {
   await router.push({
-    name: 'Tags',
+    name: 'tag-detail',
     params: {
       tag: currentTag.value,
     },
