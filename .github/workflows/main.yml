@@ -1,0 +1,109 @@
+name: Build and Deploy Mobile
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ========================================
+      # 1. Checkout source code
+      # ========================================
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ========================================
+      # 2. Setup Node.js
+      # ========================================
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # ========================================
+      # 3. Install dependencies
+      # ========================================
+      - name: Install dependencies
+        run: npm ci
+
+      # ========================================
+      # 4. Build Vue application
+      # ========================================
+      - name: Build
+        run: npm run build
+
+      # ========================================
+      # 5. Package dist
+      # ========================================
+      - name: Package dist
+        run: tar -czf mobile-dist.tar.gz -C dist .
+
+      # ========================================
+      # 6. Upload package to server
+      # ========================================
+      - name: Upload deployment package
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: 5821
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "mobile-dist.tar.gz"
+          target: "/tmp"
+
+      # ========================================
+      # 7. Deploy on server
+      # ========================================
+      - name: Deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: 5821
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+
+            echo "========================================"
+            echo "Starting mobile deployment"
+            echo "========================================"
+
+            DEPLOY_ROOT="/usr/static/mobile"
+            NEW_DIR="$DEPLOY_ROOT/dist-new"
+            CURRENT_DIR="$DEPLOY_ROOT/dist"
+
+            echo "Cleaning previous temporary directory..."
+            rm -rf "$NEW_DIR"
+
+            echo "Creating temporary directory..."
+            mkdir -p "$NEW_DIR"
+
+            echo "Extracting deployment package..."
+            tar -xzf /tmp/mobile-dist.tar.gz -C "$NEW_DIR"
+
+            echo "Checking deployed files..."
+            test -f "$NEW_DIR/index.html"
+
+            echo "Replacing current dist..."
+            rm -rf "$CURRENT_DIR"
+            mv "$NEW_DIR" "$CURRENT_DIR"
+
+            echo "Cleaning package..."
+            rm -f /tmp/mobile-dist.tar.gz
+
+            echo "========================================"
+            echo "Deployment completed successfully"
+            echo "========================================"
+
+            echo "Current deployment directory:"
+            ls -lah "$CURRENT_DIR"
+
+            echo "index.html:"
+            ls -lh "$CURRENT_DIR/index.html"
