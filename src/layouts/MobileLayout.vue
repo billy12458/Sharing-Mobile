@@ -20,7 +20,8 @@
         </div>
 
         <div class="drawer-list">
-          <button v-for="item in navigationItems" :key="item.key" type="button" class="drawer-item" @click="navigate(item.to)">
+          <button v-for="item in navigationItems" :key="item.key" type="button" class="drawer-item"
+            @click="navigate(item.to)">
             <van-icon :name="item.icon" size="20" />
             <span>{{ $t(item.label) }}</span>
           </button>
@@ -48,11 +49,13 @@
           <strong>{{ $t('search.title') }}</strong>
           <van-icon name="cross" size="22" @click="searchVisible = false" />
         </div>
-        <van-search v-model="searchQuery" :placeholder="$t('search.placeholder')" shape="round" autofocus @search="runSearch" />
+        <van-search v-model="searchQuery" :placeholder="$t('search.placeholder')" shape="round" autofocus
+          @search="runSearch" />
         <div class="search-panel-content">
           <div class="section-title">{{ $t('search.history') }}</div>
           <van-empty v-if="!searchHistory.length" :description="$t('search.history')" />
-          <van-tag v-for="item in searchHistory" :key="item" size="medium" round plain type="primary" class="history-tag" @click="runSearch(item)">{{ item }}</van-tag>
+          <van-tag v-for="item in searchHistory" :key="item" size="medium" round plain type="primary"
+            class="history-tag" @click="runSearch(item)">{{ item }}</van-tag>
         </div>
       </div>
     </van-popup>
@@ -62,7 +65,8 @@
     </main>
 
     <nav class="bottom-nav">
-      <button v-for="item in bottomItems" :key="item.to" type="button" class="bottom-item" :class="{ active: isActive(item.to) }" @click="navigate(item.to)">
+      <button v-for="item in bottomItems" :key="item.to" type="button" class="bottom-item"
+        :class="{ active: isActive(item.to) }" @click="navigate(item.to)">
         <van-icon :name="item.icon" size="20" />
         <span>{{ $t(item.label) }}</span>
       </button>
