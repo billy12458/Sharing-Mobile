@@ -3,19 +3,45 @@
     <header class="mobile-header">
       <van-icon name="wap-nav" size="23" class="header-action" @click="drawerVisible = true" />
       <button class="brand" type="button" @click="goHome">
-        <span class="brand-mark">Q</span>
-        <span class="brand-name">QuickySharing</span>
+        <span class="brand-mark">
+          <img src="../assets/images/quicky-sharing-logo.png" />
+        </span>
+        <span class="brand-name"> QuickySharing </span>
       </button>
       <van-icon name="search" size="22" class="header-action" @click="searchVisible = true" />
     </header>
 
     <van-popup v-model:show="drawerVisible" position="left" :style="{ width: '82%', height: '100%' }">
       <aside class="drawer">
-        <div class="drawer-account">
-          <div class="avatar">Q</div>
+        <div class="drawer-account" :class="{ clickable: !userState.loggedIn }" @click="handleAccountClick">
+          <div class="avatar">
+            <template v-if="userState.loggedIn">
+              <img v-if="userState.avatar" :src="userState.avatar" class="avatar" />
+            </template>
+            <template v-else>
+              <img src="../assets/images/avatar.jpg" />
+            </template>
+          </div>
+
           <div class="account-copy">
-            <strong>{{ userStore.loggedIn ? 'Quicky User' : $t('profile.notLoggedIn') }}</strong>
-            <span>{{ userStore.loggedIn ? 'Signed in' : $t('profile.loginHint') }}</span>
+            <template v-if="userState.loggedIn">
+              <strong>
+                {{ userState.userName || '-' }}
+              </strong>
+              <span>
+                {{ userState.userId || $t('profile.loggedIn') }}
+              </span>
+            </template>
+
+            <template v-else>
+              <strong>
+                {{ $t('profile.notLoggedIn') }}
+              </strong>
+
+              <span>
+                {{ $t('profile.loginHint') }}
+              </span>
+            </template>
           </div>
         </div>
 
@@ -39,6 +65,13 @@
               <template #value><van-icon v-if="locale === 'en-US'" name="success" /></template>
             </van-cell>
           </van-cell-group>
+        </div>
+
+        <div class="drawer-bottom">
+          <van-button v-if="userState.loggedIn" type="danger" block round :loading="userState.loggingOut"
+            @click="handleLogout">
+            {{ $t('common.logout') }}
+          </van-button>
         </div>
       </aside>
     </van-popup>
@@ -75,28 +108,46 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { saveLanguage } from '@/utils/storage'
+import {
+  getIsLogin,
+  getUserNameAndId,
+  logout,
+  getUserAvatar
+} from '@/api/user'
+import {
+  showFailToast,
+  showSuccessToast,
+} from 'vant'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const { locale } = useI18n()
+const { t, locale } = useI18n()
 
 const drawerVisible = ref(false)
 const searchVisible = ref(false)
 const searchQuery = ref('')
 const searchHistory = ref<string[]>([])
 
+const userState = reactive({
+  loggedIn: false,
+  userId: '',
+  userName: '',
+  avatar: '',
+  loggingOut: false,
+})
+
 const navigationItems = computed(() => [
   { key: 'home', to: '/', icon: 'home-o', label: 'navigation.home' },
   { key: 'files', to: '/files', icon: 'description', label: 'navigation.files' },
   { key: 'ranking', to: '/ranking', icon: 'bar-chart-o', label: 'navigation.ranking' },
   { key: 'tags', to: '/tags/:tag', icon: 'label-o', label: 'navigation.tags' },
-  // { key: 'documents', to: '/docs', icon: 'notes-o', label: 'navigation.documents' },
+  { key: 'documents', to: '/docs', icon: 'notes-o', label: 'navigation.documents' },
   // { key: 'messages', to: '/messages', icon: 'chat-o', label: 'navigation.messages' },
   // { key: 'photos', to: '/photos', icon: 'photo-o', label: 'navigation.photos' },
   { key: 'suggestions', to: '/suggestions', icon: 'comment-o', label: 'navigation.suggestions' },
@@ -115,6 +166,9 @@ function navigate(to: string) {
   drawerVisible.value = false
   searchVisible.value = false
   if (route.path !== to) router.push(to)
+  if (to === '/docs') {
+    window.open('https://www.quickysharing.cn/docs')
+  }
 }
 
 function goHome() {
@@ -138,6 +192,99 @@ function switchLanguage(nextLocale: 'zh-CN' | 'en-US') {
   locale.value = nextLocale
   saveLanguage(nextLocale)
 }
+
+function handleAccountClick() {
+  if (route.path === '/login') return
+  drawerVisible.value = false
+  if (userState.loggedIn) {
+    router.push('/profile')
+    return
+  }
+  router.push({
+    path: '/login',
+    query: {
+      redirect: route.fullPath,
+    },
+  })
+}
+
+async function refreshUserState() {
+  try {
+    userState.loggedIn = await getIsLogin()
+
+    if (!userState.loggedIn) {
+      userState.userId = ''
+      userState.userName = ''
+      return
+    }
+
+    const user = await getUserNameAndId()
+    const avatar = await getUserAvatar()
+
+    userState.userId =
+      user.userId ||
+      user.id ||
+      ''
+
+    userState.userName =
+      user.userName ||
+      user.username ||
+      ''
+
+    userState.avatar = "https://api.quickysharing.cn/user/avatar/my"
+  } catch {
+    userState.loggedIn = false
+    userState.userId = ''
+    userState.userName = ''
+  }
+}
+
+async function handleLogout() {
+  if (userState.loggingOut) return
+
+  userState.loggingOut = true
+
+  try {
+    const result = await logout()
+
+    if (result.status === 200) {
+      userState.loggedIn = false
+      userState.userId = ''
+      userState.userName = ''
+
+      showSuccessToast({
+        message: t('profile.logoutSuccess'),
+        duration: 2000,
+      })
+
+      drawerVisible.value = false
+      await router.push('/login')
+      return
+    }
+
+    showFailToast({
+      message:
+        typeof result.msg === 'string'
+          ? result.msg
+          : result.msg.join('\n'),
+    })
+  } catch (error: any) {
+    const msg = error?.response?.data?.msg
+
+    showFailToast({
+      message:
+        typeof msg === 'string'
+          ? msg
+          : Array.isArray(msg)
+            ? msg.join('\n')
+            : t('profile.logoutFailed'),
+    })
+  } finally {
+    userState.loggingOut = false
+  }
+}
+
+onMounted(refreshUserState)
 </script>
 
 <style scoped>
@@ -183,7 +330,6 @@ function switchLanguage(nextLocale: 'zh-CN' | 'en-US') {
   width: 28px;
   height: 28px;
   border-radius: 9px;
-  background: #f3b33d;
   color: #151515;
   font-weight: 800;
 }
@@ -207,19 +353,6 @@ function switchLanguage(nextLocale: 'zh-CN' | 'en-US') {
   gap: 12px;
   padding: 10px 4px 20px;
   border-bottom: 1px solid var(--qs-border);
-}
-
-.avatar {
-  display: grid;
-  place-items: center;
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #f3b33d;
-  color: #151515;
-  font-weight: 800;
-  font-size: 19px;
 }
 
 .account-copy {
@@ -325,5 +458,18 @@ function switchLanguage(nextLocale: 'zh-CN' | 'en-US') {
 
 .history-tag {
   margin: 0 7px 7px 0;
+}
+
+.drawer-bottom {
+  margin-top: auto;
+  padding: 18px 4px 4px;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 </style>

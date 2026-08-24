@@ -9,7 +9,7 @@ export const useUserStore = defineStore('user', {
   actions: {
     async checkLogin() {
       try {
-        this.loggedIn = await authApi.isLogin()
+        // this.loggedIn = await authApi.isLogin()
       } catch {
         this.loggedIn = false
       } finally {

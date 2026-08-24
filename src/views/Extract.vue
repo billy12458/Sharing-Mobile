@@ -34,10 +34,6 @@ import {
   getFileDetailByCode
 } from '@/api/extract'
 
-import {
-  getRecommendFiles
-} from '@/api/recommend'
-
 
 const code=ref('')
 const detail=ref<any>(null)
@@ -54,9 +50,4 @@ function clearResult(){
   detail.value=null
   code.value=''
 }
-
-
-onMounted(async()=>{
-  recommendFiles.value=await getRecommendFiles()
-})
 </script>

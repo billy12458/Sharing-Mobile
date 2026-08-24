@@ -1,8 +1,27 @@
 import api from './client'
 
-export const authApi = {
-  async isLogin(): Promise<boolean> {
-    const response = await api.get<boolean>('/user/isLogin')
-    return Boolean(response.data)
-  },
+interface ApiResponse<T> {
+  status: number
+  msg: string | string[]
+  data: T
+}
+
+export interface LoginPayload {
+  userName: string
+  password: string
+  code: string
+}
+
+export async function getCaptcha(): Promise<string> {
+  const response = await api.get<string>('/captcha/getImage')
+  return response.data
+}
+
+export async function login(payload: LoginPayload) {
+  const response = await api.post<ApiResponse<null>>(
+    '/login',
+    payload,
+  )
+
+  return response.data
 }

@@ -295,7 +295,7 @@ const features: FeatureItem[] = [
     icon: 'label-o',
     color: '#e67e22',
     bg: '#fff4e8',
-    route: '/tags',
+    route: '/tags/其他',
     zhTitle: '标签',
     enTitle: 'Tags',
     zhDescription: '不同类型、多种标签帮助你发现心仪的文件',
@@ -400,6 +400,9 @@ function openFeature(feature: FeatureItem) {
     window.open(feature.externalUrl, '_blank', 'noopener,noreferrer')
     return
   }
+  // if (feature.route == 'tag-detail') {
+  //   router.push(feature.route)
+  // }
   if (feature.route) {
     router.push(feature.route)
   }
