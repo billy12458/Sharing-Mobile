@@ -89,6 +89,26 @@ const routes: RouteRecordRaw[] = [
     meta: { title: "suggestions" },
   },
   {
+    path: "/profile/sessions",
+    name: "SessionManagement",
+    component: () => import("@/views/SessionManagement.vue"),
+  },
+  {
+    path: "/profile/login-logs",
+    name: "LoginLogs",
+    component: () => import("@/views/LoginLogs.vue"),
+  },
+  {
+    path: "/profile/followers",
+    name: "ProfileFollowers",
+    component: () => import("@/views/Followers.vue"),
+  },
+  {
+    path: "/profile/other/:userId",
+    name: "ProfileOther",
+    component: () => import("@/views/OtherProfile.vue"),
+  },
+  {
     path: "/:pathMatch(.*)*",
     name: "not-found",
     component: () => import("@/views/PlaceholderPage.vue"),
