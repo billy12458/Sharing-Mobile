@@ -109,6 +109,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/views/OtherProfile.vue"),
   },
   {
+    path: "/ai-chat",
+    name: "ai-chat",
+    component: () => import("@/views/AIChat.vue"),
+    meta: { title: "aiChat" },
+  },
+  {
     path: "/:pathMatch(.*)*",
     name: "not-found",
     component: () => import("@/views/PlaceholderPage.vue"),

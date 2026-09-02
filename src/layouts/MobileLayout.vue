@@ -147,7 +147,7 @@ const navigationItems = computed(() => [
   { key: 'files', to: '/files', icon: 'description', label: 'navigation.files' },
   { key: 'ranking', to: '/ranking', icon: 'bar-chart-o', label: 'navigation.ranking' },
   { key: 'tags', to: '/tags/:tag', icon: 'label-o', label: 'navigation.tags' },
-  { key: 'documents', to: '/docs', icon: 'notes-o', label: 'navigation.documents' },
+  { key: 'aiChat', to: '/ai-chat', icon: 'chat-o', label: 'navigation.aiChat' },
   // { key: 'messages', to: '/messages', icon: 'chat-o', label: 'navigation.messages' },
   // { key: 'photos', to: '/photos', icon: 'photo-o', label: 'navigation.photos' },
   { key: 'suggestions', to: '/suggestions', icon: 'comment-o', label: 'navigation.suggestions' },
@@ -166,9 +166,6 @@ function navigate(to: string) {
   drawerVisible.value = false
   searchVisible.value = false
   if (route.path !== to) router.push(to)
-  if (to === '/docs') {
-    window.open('https://www.quickysharing.cn/docs')
-  }
 }
 
 function goHome() {

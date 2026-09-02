@@ -18,6 +18,7 @@ export const messages = {
         suggestions: "建议 - Quicky Sharing",
         photos: "图库 - Quicky Sharing",
         messages: "消息 - Quicky Sharing",
+        aiChat: "AI聊天 - Quicky Sharing",
       },
     },
     navigation: {
@@ -33,6 +34,7 @@ export const messages = {
       settings: "设置",
       messages: "消息",
       photos: "图库",
+      aiChat: "AI聊天",
     },
     common: {
       home: "首页",
@@ -296,6 +298,15 @@ export const messages = {
       timeFormatDays: "{days}天 {hours}小时 {minutes}分 {seconds}秒",
       timeFormat: "{hours}小时 {minutes}分 {seconds}秒",
     },
+    aiChat: {
+      title: "AI聊天",
+      welcomeTitle: "你好，我是 QuickySharing AI",
+      welcomeSubtitle: "可以询问网站功能、文件管理和常见问题。",
+      placeholder: "输入你的问题...",
+      hint: "AI回答基于 QuickySharing 官方知识库",
+      emptyResponse: "没有获得有效回答。",
+      requestFailed: "请求失败",
+    },
   },
   "en-US": {
     app: {
@@ -316,6 +327,7 @@ export const messages = {
         suggestions: "Suggestions - Quicky Sharing",
         photos: "Photos - Quicky Sharing",
         messages: "Messages - Quicky Sharing",
+        aiChat: "AI Chat - Quicky Sharing",
       },
     },
     navigation: {
@@ -331,6 +343,7 @@ export const messages = {
       settings: "Settings",
       messages: "Messages",
       photos: "Photos",
+      aiChat: "AI Chat",
     },
     common: {
       home: "Home",
@@ -596,6 +609,15 @@ export const messages = {
       permanent: "Permanent ban",
       timeFormatDays: "{days}d {hours}h {minutes}m {seconds}s",
       timeFormat: "{hours}h {minutes}m {seconds}s",
+    },
+    aiChat: {
+      title: "AI Chat",
+      welcomeTitle: "Hi, I’m QuickySharing AI",
+      welcomeSubtitle: "Ask about site features, file management, and common issues.",
+      placeholder: "Ask a question...",
+      hint: "Answers are based on the official QuickySharing knowledge base.",
+      emptyResponse: "No valid response was received.",
+      requestFailed: "Request failed",
     },
   },
 } as const;
