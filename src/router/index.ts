@@ -5,6 +5,7 @@ import {
 } from "vue-router";
 import i18n from "@/i18n";
 import { tags, DEFAULT_TAG } from "@/constants/tags";
+import { getIsLogin } from "@/api/user";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -36,7 +37,7 @@ const routes: RouteRecordRaw[] = [
     path: "/profile",
     name: "profile",
     component: () => import("@/views/Profile.vue"),
-    meta: { title: "profile" },
+    meta: { title: "profile", requiresAuth: true },
   },
   {
     path: "/login",
@@ -86,22 +87,25 @@ const routes: RouteRecordRaw[] = [
     name: "suggestions",
     component: () => import("@/views/PlaceholderPage.vue"),
     props: { pageKey: "suggestions" },
-    meta: { title: "suggestions" },
+    meta: { title: "suggestions", requiresAuth: true },
   },
   {
     path: "/profile/sessions",
     name: "SessionManagement",
     component: () => import("@/views/SessionManagement.vue"),
+    meta: { title: "profile", requiresAuth: true },
   },
   {
     path: "/profile/login-logs",
     name: "LoginLogs",
     component: () => import("@/views/LoginLogs.vue"),
+    meta: { title: "profile", requiresAuth: true },
   },
   {
     path: "/profile/followers",
     name: "ProfileFollowers",
     component: () => import("@/views/Followers.vue"),
+    meta: { title: "profile", requiresAuth: true },
   },
   {
     path: "/profile/other/:userId",
@@ -112,7 +116,7 @@ const routes: RouteRecordRaw[] = [
     path: "/ai-chat",
     name: "ai-chat",
     component: () => import("@/views/AIChat.vue"),
-    meta: { title: "aiChat" },
+    meta: { title: "aiChat", requiresAuth: true },
   },
   {
     path: "/:pathMatch(.*)*",
@@ -128,7 +132,7 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.name === "tag-detail") {
     const tag = String(to.params.tag);
 
@@ -141,8 +145,31 @@ router.beforeEach((to) => {
       };
     }
   }
-});
 
+  if (to.meta.requiresAuth) {
+    try {
+      const loggedIn = await getIsLogin();
+
+      if (!loggedIn) {
+        return {
+          path: "/login",
+          query: {
+            redirect: to.fullPath,
+          },
+        };
+      }
+    } catch {
+      return {
+        path: "/login",
+        query: {
+          redirect: to.fullPath,
+        },
+      };
+    }
+  }
+
+  return true;
+});
 router.afterEach((to) => {
   const key = String(to.meta.title || "home");
 
