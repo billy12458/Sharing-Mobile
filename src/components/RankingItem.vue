@@ -1,5 +1,5 @@
 <template>
-  <div class="ranking-item">
+  <div class="ranking-item" @click="openDetail">
 
     <div class="rank">
       {{ rank }}
@@ -64,12 +64,30 @@ import sqlIcon from '@/icons/sql.png'
 import txtIcon from '@/icons/txt.png'
 import videoIcon from '@/icons/video.png'
 import zipIcon from '@/icons/zip.png'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 
 const props = defineProps<{
   rank: number
-  file: any
   type: number
+  file: {
+    filename?: string
+    userName?: string
+    document?: {
+      filename?: string
+      description?: string
+      userName?: string
+      idScore?: {
+        id?: string
+        score?: number
+      }
+      TypedTuple?: {
+        value?: string
+        score?: number
+      }
+    }
+  }
 }>()
 
 
@@ -207,6 +225,33 @@ const countIcon = computed(() => {
   return 'eye-o'
 })
 
+function getFileId(): string {
+  // Collection ranking (type 0) and download ranking (type 1)
+  // return the MongoDB file id in document.idScore.id.
+  if (props.type === 0 || props.type === 1) {
+    return String(props.file.document?.idScore?.id || '')
+  }
+
+  // View ranking (type 2) returns the MongoDB file id in document.TypedTuple.value.
+  return String(props.file.document?.TypedTuple?.value || '')
+}
+
+function openDetail() {
+  const fileId = getFileId()
+
+  if (!fileId) {
+    console.warn('Ranking item has no file id:', props.file)
+    return
+  }
+
+  router.push({
+    name: 'FileDetail',
+    params: {
+      id: fileId,
+    },
+  })
+}
+
 </script>
 
 
@@ -224,6 +269,7 @@ const countIcon = computed(() => {
   margin-bottom: 10px;
 
   border-radius: 10px;
+  cursor: pointer;
 
 }
 

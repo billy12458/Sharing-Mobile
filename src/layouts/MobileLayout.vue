@@ -97,13 +97,9 @@
       <slot />
     </main>
 
-    <nav class="bottom-nav">
-      <button v-for="item in bottomItems" :key="item.to" type="button" class="bottom-item"
-        :class="{ active: isActive(item.to) }" @click="navigate(item.to)">
-        <van-icon :name="item.icon" size="20" />
-        <span>{{ $t(item.label) }}</span>
-      </button>
-    </nav>
+    <MobileFooter />
+
+
   </div>
 </template>
 
@@ -111,6 +107,7 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import MobileFooter from '@/components/MobileFooter.vue'
 import { useUserStore } from '@/stores/user'
 import { saveLanguage } from '@/utils/storage'
 import {
@@ -155,13 +152,6 @@ const navigationItems = computed(() => [
   { key: 'profile', to: '/profile', icon: 'user-o', label: 'navigation.profile' },
 ])
 
-const bottomItems = computed(() => [
-  { to: '/', icon: 'home-o', label: 'navigation.home' },
-  { to: '/files', icon: 'description', label: 'navigation.files' },
-  { to: '/search', icon: 'search', label: 'navigation.search' },
-  { to: '/profile', icon: 'user-o', label: 'navigation.profile' },
-])
-
 function navigate(to: string) {
   drawerVisible.value = false
   searchVisible.value = false
@@ -170,11 +160,6 @@ function navigate(to: string) {
 
 function goHome() {
   navigate('/')
-}
-
-function isActive(to: string) {
-  if (to === '/') return route.path === '/'
-  return route.path === to || route.path.startsWith(`${to}/`)
 }
 
 function runSearch(value = searchQuery.value) {
@@ -469,4 +454,5 @@ onMounted(refreshUserState)
   object-fit: cover;
   display: block;
 }
+
 </style>

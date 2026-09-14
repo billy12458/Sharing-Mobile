@@ -58,6 +58,50 @@ export async function getMyFansPaged(
   }
 }
 
+
+export async function getMyFollowsPaged(
+  pageNum = 1,
+  pageSize = 10,
+): Promise<FansPagedData> {
+  const response = await axios.put(
+    `${API_BASE}/faf/follows/all/paged`,
+    null,
+    {
+      params: {
+        pageNum,
+        pageSize,
+      },
+      withCredentials: true,
+    },
+  )
+
+  return response.data?.data || {
+    total: 0,
+    list: [],
+    pageNum,
+    pageSize,
+    pages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  }
+}
+
+export async function cancelSubscribeUser(
+  userId: string,
+  followsUserId: string,
+) {
+  return axios.delete(
+    `${API_BASE}/faf/fans/cacelSubscribe`,
+    {
+      data: {
+        userId,
+        followsUserId,
+      },
+      withCredentials: true,
+    },
+  )
+}
+
 export async function getMyProfile() {
   const response = await axios.put(
     `${API_BASE}/user/my`,

@@ -1,5 +1,5 @@
 <template>
-  <div class="recommend-item">
+  <div class="recommend-item" @click="openDetail">
     <img class="icon" :src="getFileIcon(file.filename)" :alt="file.filename || $t('ranking.fileIconAlt')" />
 
     <div class="info">
@@ -16,14 +16,26 @@
 
 <script setup lang="ts">
 import { getFileIcon } from '@/utils/fileIcon'
+import { useRouter } from 'vue-router'
 
-defineProps<{
+const router = useRouter()
+
+const props = defineProps<{
   file: {
     filename?: string
     userName?: string
     _id?: string
   }
 }>()
+
+function openDetail() {
+  router.push({
+    name: 'FileDetail',
+    params: {
+      id: props.file._id,
+    },
+  })
+}
 </script>
 
 <style scoped>

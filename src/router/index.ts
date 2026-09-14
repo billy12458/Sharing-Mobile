@@ -119,6 +119,26 @@ const routes: RouteRecordRaw[] = [
     meta: { title: "aiChat", requiresAuth: true },
   },
   {
+    path: "/Files/:id/detail",
+    name: "FileDetail",
+    component: () => import("@/views/FileDetail.vue"),
+    alias: "/files/:id/detail",
+    meta: { title: "filedetail"},
+  },
+  {
+    path: "/files/:id",
+    name: "file-detail",
+    component: () => import("@/views/FileDetail.vue"),
+    props: true,
+    meta: { title: "filedetail"},
+  },
+  {
+    path: "/profile/subscriptions",
+    name: "ProfileSubscriptions",
+    component: () => import("@/views/Following.vue"),
+    meta: { title: "profile", requiresAuth: true },
+  },
+  {
     path: "/:pathMatch(.*)*",
     name: "not-found",
     component: () => import("@/views/PlaceholderPage.vue"),

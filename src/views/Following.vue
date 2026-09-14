@@ -1,17 +1,26 @@
 <template>
   <MobileLayout>
-    <div class="followers-page">
-      <van-nav-bar :title="t('followers.title')" left-arrow @click-left="router.push('/profile')" />
+    <div class="following-page">
+      <van-nav-bar
+        :title="t('following.title')"
+        left-arrow
+        @click-left="router.push('/profile')"
+      />
 
-      <van-cell-group v-if="!loading && followers.length" inset class="followers-card">
-        <van-cell v-for="user in followers" :key="user.userId" class="follower-item" center>
+      <van-cell-group v-if="!loading && follows.length" inset class="following-card">
+        <van-cell
+          v-for="user in follows"
+          :key="user.userId"
+          class="following-item"
+          center
+        >
           <template #icon>
             <van-image
               class="avatar"
               round
               fit="cover"
               :src="getAvatarUrl(user.userId)"
-              :alt="user.userName || t('followers.unknownUser')"
+              :alt="user.userName || t('following.unknownUser')"
             >
               <template #error>
                 <div class="avatar-fallback">
@@ -26,14 +35,17 @@
           </template>
 
           <template #title>
-            <div class="user-main clickable" @click="goToUserProfile(user.userId)">
+            <div
+              class="user-main clickable"
+              @click="goToUserProfile(user.userId)"
+            >
               <div class="username">
                 <van-icon name="manager-o" />
                 <span>{{ user.userName || '-' }}</span>
               </div>
 
               <div class="motto">
-                {{ user.motto || t('followers.noMotto') }}
+                {{ user.motto || t('following.noMotto') }}
               </div>
             </div>
           </template>
@@ -41,23 +53,23 @@
           <template #value>
             <van-button
               size="small"
-              type="primary"
+              type="default"
               :loading="actionLoading[user.userId] === true"
-              @click.stop="followUser(user.userId)"
+              @click.stop="cancelFollow(user.userId)"
             >
-              {{ t('followers.follow') }}
+              {{ t('following.cancel') }}
             </van-button>
           </template>
         </van-cell>
       </van-cell-group>
 
       <van-loading v-if="loading" class="page-loading" size="24px" vertical>
-        {{ t('followers.loading') }}
+        {{ t('following.loading') }}
       </van-loading>
 
       <van-empty
-        v-else-if="followers.length === 0"
-        :description="t('followers.empty')"
+        v-else-if="follows.length === 0"
+        :description="t('following.empty')"
       />
 
       <div class="pagination-wrap">
@@ -65,6 +77,7 @@
           v-model="pageNum"
           :page-count="totalPages"
           :items-per-page="pageSize"
+          force-ellipses
           @change="handlePageChange"
         />
       </div>
@@ -77,25 +90,26 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { showFailToast, showSuccessToast } from 'vant'
+
 import MobileLayout from '@/layouts/MobileLayout.vue'
 import {
-  getMyFansPaged,
+  cancelSubscribeUser,
+  getMyFollowsPaged,
   getMyProfile,
-  subscribeUser,
   type FanUser,
 } from '@/api/followers'
 
 const { t } = useI18n()
 const router = useRouter()
 
-const followers = ref<FanUser[]>([])
-
+const follows = ref<FanUser[]>([])
 const currentUserId = ref('')
+
 const pageNum = ref(1)
 const pageSize = 8
 const totalPages = ref(1)
-
 const loading = ref(false)
+
 const actionLoading = reactive<Record<string, boolean>>({})
 
 function getAvatarUrl(userId: string) {
@@ -127,14 +141,14 @@ async function loadPage(targetPage = pageNum.value) {
   loading.value = true
 
   try {
-    const data = await getMyFansPaged(targetPage, pageSize)
+    const data = await getMyFollowsPaged(targetPage, pageSize)
 
-    followers.value = data?.list || []
+    follows.value = data?.list || []
     pageNum.value = Number(data?.pageNum || targetPage)
     totalPages.value = Math.max(1, Number(data?.pages || 1))
   } catch (error: any) {
     showFailToast(
-      error?.response?.data?.msg || t('followers.loadFailed'),
+      error?.response?.data?.msg || t('following.loadFailed'),
     )
   } finally {
     loading.value = false
@@ -145,7 +159,7 @@ async function handlePageChange(page: number) {
   await loadPage(page)
 }
 
-async function followUser(userId: string) {
+async function cancelFollow(userId: string) {
   if (!userId || actionLoading[userId] || !currentUserId.value) {
     return
   }
@@ -153,20 +167,32 @@ async function followUser(userId: string) {
   actionLoading[userId] = true
 
   try {
-    const response = await subscribeUser(
+    const response = await cancelSubscribeUser(
       currentUserId.value,
       userId,
     )
 
     const status = response?.data?.status
     const message =
-      response?.data?.msg || t('followers.actionFailed')
+      response?.data?.msg || t('following.actionFailed')
 
     if (status === 200) {
       showSuccessToast({
-        message,
-        duration: 2000,
+        message: message || t('following.cancelSuccess'),
+        duration: 1800,
       })
+      const currentPage = pageNum.value
+      await loadPage(currentPage)
+
+      // If the last item on a page was removed, that page may no longer exist.
+      // Fall back to the previous page so the user never gets stuck on an empty page.
+      if (
+        follows.value.length === 0 &&
+        currentPage > 1 &&
+        totalPages.value < currentPage
+      ) {
+        await loadPage(currentPage - 1)
+      }
     } else {
       showFailToast({
         message,
@@ -175,7 +201,7 @@ async function followUser(userId: string) {
     }
   } catch (error: any) {
     showFailToast(
-      error?.response?.data?.msg || t('followers.actionFailed'),
+      error?.response?.data?.msg || t('following.actionFailed'),
     )
   } finally {
     actionLoading[userId] = false
@@ -189,18 +215,18 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.followers-page {
+.following-page {
   min-height: 100%;
   padding-bottom: 28px;
   background: #f7f8fa;
 }
 
-.followers-card {
+.following-card {
   margin-top: 12px;
   overflow: hidden;
 }
 
-.follower-item {
+.following-item {
   min-height: 80px;
 }
 

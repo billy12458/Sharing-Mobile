@@ -718,7 +718,7 @@ onMounted(async () => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 12px calc(108px + env(safe-area-inset-bottom));
+  padding: 8px 12px calc(88px + env(safe-area-inset-bottom));
   scroll-behavior: smooth;
 }
 
@@ -894,7 +894,7 @@ onMounted(async () => {
 .composer {
   position: fixed;
   right: 0;
-  bottom: calc(62px + env(safe-area-inset-bottom));
+  bottom: env(safe-area-inset-bottom);
   left: 0;
   z-index: 14;
   padding: 8px 10px 10px;
