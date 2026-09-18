@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import {onMounted,ref} from 'vue'
+import { useRoute } from 'vue-router'
 
 import MobileLayout from '@/layouts/MobileLayout.vue'
 import ExtractInput from '@/components/extract/ExtractInput.vue'
@@ -34,11 +35,18 @@ import {
   getFileDetailByCode
 } from '@/api/extract'
 
-
+const route = useRoute()
 const code=ref('')
 const detail=ref<any>(null)
 const recommendFiles=ref<any[]>([])
 
+onMounted(async () => {
+  const urlCode = String(route.query.code || '').trim()
+
+  if (urlCode) {
+    await queryDetail(urlCode)
+  }
+})
 
 async function queryDetail(value:string){
   code.value=value

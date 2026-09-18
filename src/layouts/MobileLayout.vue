@@ -8,7 +8,10 @@
         </span>
         <span class="brand-name"> QuickySharing </span>
       </button>
-      <van-icon name="search" size="22" class="header-action" @click="searchVisible = true" />
+      <!-- <van-icon name="search" size="22" class="header-action" @click="searchVisible = true" /> -->
+      <button type="button" class="header-action" :aria-label="t('common.search')" @click="handleSearchClick">
+        <van-icon name="search" size="22" />
+      </button>
     </header>
 
     <van-popup v-model:show="drawerVisible" position="left" :style="{ width: '82%', height: '100%' }">
@@ -76,23 +79,6 @@
       </aside>
     </van-popup>
 
-    <van-popup v-model:show="searchVisible" position="top" :style="{ minHeight: '100%', padding: '16px' }">
-      <div class="search-panel">
-        <div class="search-panel-head">
-          <strong>{{ $t('search.title') }}</strong>
-          <van-icon name="cross" size="22" @click="searchVisible = false" />
-        </div>
-        <van-search v-model="searchQuery" :placeholder="$t('search.placeholder')" shape="round" autofocus
-          @search="runSearch" />
-        <div class="search-panel-content">
-          <div class="section-title">{{ $t('search.history') }}</div>
-          <van-empty v-if="!searchHistory.length" :description="$t('search.history')" />
-          <van-tag v-for="item in searchHistory" :key="item" size="medium" round plain type="primary"
-            class="history-tag" @click="runSearch(item)">{{ item }}</van-tag>
-        </div>
-      </div>
-    </van-popup>
-
     <main class="mobile-main">
       <slot />
     </main>
@@ -141,7 +127,7 @@ const userState = reactive({
 
 const navigationItems = computed(() => [
   { key: 'home', to: '/', icon: 'home-o', label: 'navigation.home' },
-  { key: 'files', to: '/files', icon: 'description', label: 'navigation.files' },
+  { key: 'files', to: '/files', icon: 'description-o', label: 'navigation.files' },
   { key: 'ranking', to: '/ranking', icon: 'bar-chart-o', label: 'navigation.ranking' },
   { key: 'tags', to: '/tags/:tag', icon: 'label-o', label: 'navigation.tags' },
   { key: 'aiChat', to: '/ai-chat', icon: 'chat-o', label: 'navigation.aiChat' },
@@ -266,6 +252,15 @@ async function handleLogout() {
   }
 }
 
+function handleSearchClick() {
+  if (router.currentRoute.value.path != '/search') {
+    router.push('/search')
+  }
+  else {
+    return
+  }
+}
+
 onMounted(refreshUserState)
 </script>
 
@@ -290,7 +285,15 @@ onMounted(refreshUserState)
 }
 
 .header-action {
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
 }
 
 .brand {
@@ -454,5 +457,4 @@ onMounted(refreshUserState)
   object-fit: cover;
   display: block;
 }
-
 </style>

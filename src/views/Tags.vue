@@ -81,11 +81,14 @@
 
       <template v-else>
         <div class="file-list">
-          <TagFileItem
+          <div
             v-for="(item, index) in pageData.content"
-            :key="item.id || item.content?.id || index"
-            :file="item"
-          />
+            :key="item.id || item._id || item.content?.id || index"
+            class="tag-file-clickable"
+            @click="openFileDetail(item)"
+          >
+            <TagFileItem :file="item" />
+          </div>
         </div>
 
         <van-empty
@@ -270,10 +273,30 @@ async function selectTag(tag: string) {
 async function handlePageChange(page: number) {
   window.scrollTo({
     top: 0,
-    behavior: 'auto'
-    });
+    behavior: 'auto',
+  })
   pageNum.value = page
   await loadTagFiles()
+}
+
+async function openFileDetail(item: any) {
+  const fileId = String(
+    item?._id ||
+    item?.id ||
+    item?.content?._id ||
+    item?.content?.id ||
+    '',
+  ).trim()
+
+  if (!fileId) {
+    console.warn('Tag file has no file id:', item)
+    return
+  }
+
+  await router.push({
+    name: 'FileDetail',
+    params: { id: fileId },
+  })
 }
 
 async function goHome() {
@@ -435,6 +458,10 @@ onMounted(async () => {
 
 .file-list {
   padding-top: 0;
+}
+
+.tag-file-clickable {
+  cursor: pointer;
 }
 
 .pagination {
