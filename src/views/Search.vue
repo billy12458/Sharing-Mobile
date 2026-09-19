@@ -197,6 +197,8 @@ import {
   type SearchFileHit,
 } from '@/api/search'
 
+import api from '@/api/client'
+
 import {
   rowDownload,
 } from '@/utils/download'
@@ -587,6 +589,78 @@ function openActions(file: SearchFileHit) {
   actionVisible.value = true
 }
 
+
+async function openPreview(fileId: string) {
+  const previewWindow = window.open('about:blank', '_blank')
+
+  if (!previewWindow) {
+    showFailToast(t('search.previewPopupBlocked'))
+    return
+  }
+
+  try {
+    previewWindow.document.title = t('search.previewLoading')
+
+    const maxAttempts = 20
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const response = await api.get<{
+        status: number
+        msg: string | string[]
+        data?: {
+          status?: 'READY' | 'PROCESSING' | string
+          previewUrl?: string
+        }
+      }>(`/files/preview/${encodeURIComponent(fileId)}`)
+
+      const body = response.data
+      const data = body.data
+
+      if (body.status !== 200) {
+        throw new Error(
+          typeof body.msg === 'string'
+            ? body.msg
+            : body.msg.join('\n'),
+        )
+      }
+
+      if (data?.status === 'READY' && data.previewUrl) {
+        previewWindow.location.href = data.previewUrl
+        return
+      }
+
+      if (data?.status === 'PROCESSING') {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 1000)
+        })
+        continue
+      }
+
+      throw new Error(t('search.previewFailed'))
+    }
+
+    previewWindow.close()
+    showFailToast(t('search.previewProcessing'))
+  } catch (error: any) {
+    previewWindow.close()
+
+    const message =
+      error?.response?.data?.msg ||
+      error?.message ||
+      t('search.previewFailed')
+
+    showFailToast({
+      message:
+        typeof message === 'string'
+          ? message
+          : Array.isArray(message)
+            ? message.join('\n')
+            : t('search.previewFailed'),
+      duration: 2500,
+    })
+  }
+}
+
 async function handleAction(
   action: { key?: string },
 ) {
@@ -618,10 +692,12 @@ async function handleAction(
   if (action.key === 'preview') {
     actionVisible.value = false
 
-    showFailToast(
-      t('search.previewComingSoon'),
-    )
+    if (!fileId) {
+      showFailToast(t('search.fileIdMissing'))
+      return
+    }
 
+    await openPreview(fileId)
     return
   }
 

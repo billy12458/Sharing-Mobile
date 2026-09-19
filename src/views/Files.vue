@@ -290,6 +290,7 @@ import {
   type MyFilesPage,
 } from '@/api/myFiles'
 
+import api from '@/api/client'
 import { rowDownload } from '@/utils/download'
 
 const { t } = useI18n()
@@ -504,6 +505,78 @@ function openActions(file: MyFile) {
   actionVisible.value = true
 }
 
+
+async function openPreview(fileId: string) {
+  const previewWindow = window.open('about:blank', '_blank')
+
+  if (!previewWindow) {
+    showFailToast(t('files.previewPopupBlocked'))
+    return
+  }
+
+  try {
+    previewWindow.document.title = t('files.previewLoading')
+
+    const maxAttempts = 20
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const response = await api.get<{
+        status: number
+        msg: string | string[]
+        data?: {
+          status?: 'READY' | 'PROCESSING' | string
+          previewUrl?: string
+        }
+      }>(`/files/preview/${encodeURIComponent(fileId)}`)
+
+      const body = response.data
+      const data = body.data
+
+      if (body.status !== 200) {
+        throw new Error(
+          typeof body.msg === 'string'
+            ? body.msg
+            : body.msg.join('\n'),
+        )
+      }
+
+      if (data?.status === 'READY' && data.previewUrl) {
+        previewWindow.location.href = data.previewUrl
+        return
+      }
+
+      if (data?.status === 'PROCESSING') {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 1000)
+        })
+        continue
+      }
+
+      throw new Error(t('files.previewFailed'))
+    }
+
+    previewWindow.close()
+    showFailToast(t('files.previewProcessing'))
+  } catch (error: any) {
+    previewWindow.close()
+
+    const message =
+      error?.response?.data?.msg ||
+      error?.message ||
+      t('files.previewFailed')
+
+    showFailToast({
+      message:
+        typeof message === 'string'
+          ? message
+          : Array.isArray(message)
+            ? message.join('\n')
+            : t('files.previewFailed'),
+      duration: 2500,
+    })
+  }
+}
+
 async function handleAction(action: { key?: string }) {
   const file = selectedFile.value
 
@@ -550,7 +623,7 @@ async function handleAction(action: { key?: string }) {
 
   if (action.key === 'preview') {
     actionVisible.value = false
-    showFailToast(t('files.previewComingSoon'))
+    await openPreview(file._id)
     return
   }
 

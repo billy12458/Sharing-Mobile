@@ -81,6 +81,7 @@ import RecommendFileList from '@/components/RecommendFileList.vue'
 import FileDetailMain from '@/components/file-detail/FileDetailMain.vue'
 import FileDetailActions from '@/components/file-detail/FileDetailActions.vue'
 
+import api from '@/api/client'
 import { rowDownload } from '@/utils/download'
 import { showFailToast, showSuccessToast } from 'vant'
 
@@ -237,7 +238,75 @@ async function confirmDownload() {
   }
 }
 
-function handlePreview() {
+async function handlePreview() {
+  const previewWindow = window.open('about:blank', '_blank')
+
+  if (!previewWindow) {
+    showFailToast(t('fileDetail.previewPopupBlocked'))
+    return
+  }
+
+  try {
+    previewWindow.document.title = t('fileDetail.previewLoading')
+
+    const maxAttempts = 20
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const response = await api.get<{
+        status: number
+        msg: string | string[]
+        data?: {
+          status?: 'READY' | 'PROCESSING' | string
+          previewUrl?: string
+        }
+      }>(`/files/preview/${encodeURIComponent(fileId.value)}`)
+
+      const body = response.data
+      const data = body.data
+
+      if (body.status !== 200) {
+        throw new Error(
+          typeof body.msg === 'string'
+            ? body.msg
+            : body.msg.join('\n'),
+        )
+      }
+
+      if (data?.status === 'READY' && data.previewUrl) {
+        previewWindow.location.href = data.previewUrl
+        return
+      }
+
+      if (data?.status === 'PROCESSING') {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 1000)
+        })
+        continue
+      }
+
+      throw new Error(t('fileDetail.previewFailed'))
+    }
+
+    previewWindow.close()
+    showFailToast(t('fileDetail.previewProcessing'))
+  } catch (error: any) {
+    previewWindow.close()
+
+    const message =
+      error?.response?.data?.msg ||
+      error?.message ||
+      t('fileDetail.previewFailed')
+
+    showFailToast({
+      message:
+        typeof message === 'string'
+          ? message
+          : Array.isArray(message)
+            ? message.join('\n')
+            : t('fileDetail.previewFailed'),
+      duration: 2500,
+    })
+  }
 }
 
 async function handleShare() {
