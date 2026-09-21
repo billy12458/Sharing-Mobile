@@ -252,10 +252,148 @@
         v-model:show="showUpload"
         position="bottom"
         round
-        :style="{ height: '70%' }"
+        :style="{ height: '78%' }"
+        :close-on-click-overlay="!uploading"
+        :before-close="handleUploadBeforeClose"
+        @open="handleUploadOpen"
+        @closed="resetUploadState"
       >
-        <div class="placeholder-panel">
-          {{ t('files.uploadComingSoon') }}
+        <div class="upload-panel">
+          <div class="upload-panel-header">
+            <div class="upload-panel-title">
+              {{ t('files.upload') }}
+            </div>
+
+            <van-icon
+              v-if="!uploading"
+              name="cross"
+              size="20"
+              @click="showUpload = false"
+            />
+          </div>
+
+          <div class="upload-panel-body">
+            <!-- <div class="upload-section-title">
+              {{ t('files.simpleUpload') }}
+            </div> -->
+
+            <van-uploader
+              v-model="uploadList"
+              :max-count="1"
+              :disabled="uploading"
+              :deletable="!uploading"
+              accept="text/*,image/*,application/*"
+              :after-read="handleUploadFile"
+              :before-delete="handleUploadDelete"
+            />
+
+            <div
+              v-if="selectedUploadFile"
+              class="upload-file-name"
+            >
+              {{ selectedUploadFile.name }}
+            </div>
+
+            <div class="upload-field-row">
+              <div class="upload-field-label">
+                {{ t('files.tags') }}
+              </div>
+              <van-tag type="primary">
+                {{ t('files.defaultTag') }}
+              </van-tag>
+            </div>
+
+            <div class="upload-field-row upload-description-row">
+              <div class="upload-field-label">
+                {{ t('files.description') }}
+              </div>
+              <div class="upload-description">
+                {{ t('files.noDescription') }}
+              </div>
+            </div>
+
+            <div class="upload-field-row captcha-row">
+              <div class="upload-field-label">
+                {{ t('files.captcha') }}
+              </div>
+
+              <div class="captcha-control">
+                <van-field
+                  v-model="uploadCode"
+                  class="captcha-input"
+                  :placeholder="t('files.captchaPlaceholder')"
+                  clearable
+                  :disabled="uploading"
+                />
+
+                <img
+                  v-if="captchaImage"
+                  :src="captchaImage"
+                  class="captcha-image"
+                  :alt="t('files.captchaAlt')"
+                  @click="getCaptcha"
+                />
+              </div>
+            </div>
+
+            <div
+              v-if="captchaSeconds > 0"
+              class="captcha-hint"
+            >
+              {{ t('files.captchaExpiresIn', { seconds: captchaSeconds }) }}
+            </div>
+
+            <div class="upload-actions">
+              <van-button
+                type="primary"
+                block
+                :loading="uploading"
+                :disabled="!selectedUploadFile || !uploadCode.trim() || captchaExpired"
+                @click="submitSimpleUpload"
+              >
+                {{ t('files.uploadAction') }}
+              </van-button>
+
+              <van-button
+                block
+                plain
+                :disabled="uploading"
+                @click="showUpload = false"
+              >
+                {{ t('common.cancel') }}
+              </van-button>
+            </div>
+          </div>
+        </div>
+      </van-popup>
+
+      <van-popup
+        v-model:show="uploadProgressVisible"
+        round
+        position="center"
+        :style="{ width: '82%', padding: '24px 20px' }"
+        :close-on-click-overlay="false"
+        :close-on-popstate="false"
+      >
+        <div class="upload-progress-dialog">
+          <div class="upload-progress-dialog-title">
+            {{ t('files.uploading') }}
+          </div>
+
+          <div class="upload-progress-dialog-file">
+            {{ uploadFilename || '-' }}
+          </div>
+
+          <van-progress
+            :percentage="uploadProgress"
+            :show-pivot="true"
+            stroke-width="8"
+            class="upload-progress-dialog-bar"
+          />
+
+          <div class="upload-progress-dialog-text">
+            {{ t('files.uploading', { percent: uploadProgress }) }}
+          </div>
         </div>
       </van-popup>
 
@@ -265,7 +403,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
@@ -332,6 +470,21 @@ const downloadFile = ref<MyFile | null>(null)
 
 const showUpload = ref(false)
 const showAdvancedSearch = ref(false)
+
+// 普通上传
+const uploadList = ref<any[]>([])
+const selectedUploadFile = ref<File | null>(null)
+const uploadCode = ref('')
+const uploadDescription = '暂无描述'
+const captchaImage = ref('')
+const captchaSeconds = ref(0)
+const captchaExpired = ref(false)
+const captchaTimer = ref<ReturnType<typeof window.setInterval> | null>(null)
+const uploadUserName = ref('')
+const uploading = ref(false)
+const uploadProgressVisible = ref(false)
+const uploadFilename = ref('')
+const uploadProgress = ref(0)
 
 const searchActive = ref(false)
 const searchCriteria = ref<MyFileSearch>({
@@ -505,6 +658,267 @@ function openActions(file: MyFile) {
   actionVisible.value = true
 }
 
+function clearCaptchaTimer() {
+  if (captchaTimer.value !== null) {
+    window.clearInterval(captchaTimer.value)
+    captchaTimer.value = null
+  }
+}
+
+async function getCaptcha() {
+  if (uploading.value) return
+
+  try {
+    clearCaptchaTimer()
+    captchaSeconds.value = 0
+    captchaExpired.value = false
+
+    const response = await api.get('/captcha/getImage')
+    captchaImage.value = response.data
+
+    captchaSeconds.value = 300
+    captchaTimer.value = window.setInterval(() => {
+      captchaSeconds.value -= 1
+
+      if (captchaSeconds.value <= 0) {
+        clearCaptchaTimer()
+        captchaSeconds.value = 0
+        captchaExpired.value = true
+        showFailToast(t('files.captchaExpired'))
+      }
+    }, 1000)
+  } catch {
+    captchaImage.value = ''
+    captchaExpired.value = true
+    showFailToast(t('files.captchaFetchFailed'))
+  }
+}
+
+async function getUploadUserName() {
+  try {
+    const response = await api.get('/user/userName/my')
+    const userName = response.data?.data?.userName || ''
+    uploadUserName.value = userName
+    return userName
+  } catch {
+    uploadUserName.value = ''
+    return ''
+  }
+}
+
+async function handleUploadOpen() {
+  await Promise.all([
+    getCaptcha(),
+    getUploadUserName(),
+  ])
+}
+
+function handleUploadBeforeClose() {
+  return !uploading.value && !uploadProgressVisible.value
+}
+
+function handleUploadFile(fileItem: any) {
+  const file = fileItem?.file
+
+  if (!(file instanceof File)) {
+    selectedUploadFile.value = null
+    return
+  }
+
+  selectedUploadFile.value = file
+}
+
+function handleUploadDelete() {
+  selectedUploadFile.value = null
+  return true
+}
+
+function resetUploadState() {
+  if (uploading.value || uploadProgressVisible.value) return
+
+  clearCaptchaTimer()
+  uploadList.value = []
+  selectedUploadFile.value = null
+  uploadCode.value = ''
+  captchaImage.value = ''
+  captchaSeconds.value = 0
+  captchaExpired.value = false
+  uploadUserName.value = ''
+  uploadFilename.value = ''
+  uploadProgress.value = 0
+}
+
+async function submitSimpleUpload() {
+  const file = selectedUploadFile.value
+
+  if (!file) {
+    showFailToast(t('files.fileRequired'))
+    return
+  }
+
+  if (!uploadCode.value.trim()) {
+    showFailToast(t('files.captchaRequired'))
+    return
+  }
+
+  if (captchaExpired.value) {
+    showFailToast(t('files.captchaExpired'))
+    return
+  }
+
+  try {
+    const checkResponse = await api.post('/files/preload/check', {
+      filename: file.name,
+      code: uploadCode.value.trim(),
+      description: uploadDescription,
+    })
+
+    if (checkResponse.data?.status !== 200) {
+      // 后端业务校验失败（例如文件类型、文件大小、描述内容等），
+      // 当前验证码已经参与过本次校验，刷新验证码后再允许用户重试。
+      await getCaptcha()
+
+      throw new Error(
+        typeof checkResponse.data?.msg === 'string'
+          ? checkResponse.data.msg
+          : Array.isArray(checkResponse.data?.msg)
+            ? checkResponse.data.msg.join('\n')
+            : t('files.uploadCheckFailed'),
+      )
+    }
+
+    let userName = uploadUserName.value
+
+    if (!userName) {
+      userName = await getUploadUserName()
+    }
+
+    if (!userName) {
+      throw new Error(t('files.uploadFailed'))
+    }
+
+    uploadFilename.value = file.name
+    uploadProgress.value = 0
+
+    // 与 PC 端一致：先关闭普通上传窗口，再打开不可关闭的进度窗口。
+    showUpload.value = false
+    uploading.value = true
+    uploadProgressVisible.value = true
+
+    const uploadDTO = JSON.stringify({
+      userId: userName,
+      filename: file.name,
+      userName,
+      description: uploadDescription,
+      isPrivate: false,
+      password: null,
+      code: uploadCode.value.trim(),
+      expire: '',
+      tags: ['其他'],
+    })
+
+    const form = new FormData()
+
+    form.append(
+      'uploadDTO',
+      new Blob([uploadDTO], {
+        type: 'application/json',
+      }),
+    )
+    form.append('uploadFile', file)
+
+    const response = await api.put(
+      '/files/upload?isPrivate=0',
+      form,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) return
+
+          uploadProgress.value = Math.min(
+            100,
+            Math.round(
+              (progressEvent.loaded / progressEvent.total) * 100,
+            ),
+          )
+        },
+      },
+    )
+
+    if (response.data?.status !== 200) {
+      // 上传接口返回业务失败时，同样刷新验证码，避免用户继续使用已经失效/消耗的验证码。
+      uploadProgressVisible.value = false
+      uploading.value = false
+
+      // 此时普通上传弹窗已经关闭，主动清理旧文件/验证码状态。
+      resetUploadState()
+      await getCaptcha()
+
+      throw new Error(
+        typeof response.data?.msg === 'string'
+          ? response.data.msg
+          : Array.isArray(response.data?.msg)
+            ? response.data.msg.join('\n')
+            : t('files.uploadFailed'),
+      )
+    }
+
+    uploadProgress.value = 100
+
+    // 给用户一个极短的 100% 完成反馈，再关闭进度窗口。
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 250)
+    })
+
+    uploadProgressVisible.value = false
+    uploading.value = false
+
+    // 上传进度窗口关闭后显式清理普通上传表单状态。
+    // 普通上传弹窗在真正开始上传时已经关闭，因此此时不能再依赖
+    // @closed -> resetUploadState()，否则旧的文件/验证码会残留到下一次打开。
+    resetUploadState()
+
+    showSuccessToast(t('files.uploadSuccess'))
+    await loadFiles()
+  } catch (error: any) {
+    const status = error?.response?.status
+    const serverMessage = error?.response?.data?.msg
+
+    // HTTP 层失败（如 413 文件过大）同样刷新验证码。
+    // 业务 status 非 200 的情况已经在上面的分支中刷新过，这里只在 HTTP 错误时再次保证刷新。
+    if (error?.response) {
+      uploadProgressVisible.value = false
+      uploading.value = false
+
+      // 上传请求已经进入独立的进度窗口，此时普通上传弹窗已经关闭。
+      // 因此失败后主动清理旧表单状态，下一次打开时重新获取验证码。
+      resetUploadState()
+      await getCaptcha()
+    }
+
+    let message = t('files.uploadNetworkFailed')
+
+    if (status === 413) {
+      message = t('files.fileTooLarge')
+    } else if (typeof serverMessage === 'string') {
+      message = serverMessage
+    } else if (Array.isArray(serverMessage)) {
+      message = serverMessage.join('\n')
+    } else if (error?.message) {
+      message = error.message
+    }
+
+    uploadProgressVisible.value = false
+    uploading.value = false
+
+    showFailToast({
+      message,
+      duration: 2500,
+    })
+  }
+}
 
 async function openPreview(fileId: string) {
   const previewWindow = window.open('about:blank', '_blank')
@@ -760,6 +1174,10 @@ function formatSize(size = 0) {
 }
 
 onMounted(loadFiles)
+
+onBeforeUnmount(() => {
+  clearCaptchaTimer()
+})
 </script>
 
 <style scoped>
@@ -843,6 +1261,166 @@ onMounted(loadFiles)
   color: #999;
   font-size: 12px;
   line-height: 18px;
+}
+
+.upload-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.upload-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #f2f3f5;
+}
+
+.upload-panel-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #323233;
+}
+
+.upload-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 12px 24px;
+}
+
+.upload-section-title {
+  margin-bottom: 14px;
+  font-size: 14px;
+  color: #323233;
+  font-weight: 600;
+}
+
+.upload-file-name {
+  margin: 10px 4px 14px;
+  color: #646566;
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.upload-field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 4px 4px;
+}
+
+.upload-description-row {
+  align-items: flex-start;
+}
+
+.upload-field-label {
+  min-width: 42px;
+  color: #323233;
+  font-size: 14px;
+}
+
+.upload-description {
+  flex: 1;
+  color: #646566;
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.captcha-row {
+  align-items: center;
+  padding-top: 12px;
+}
+
+.captcha-control {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.captcha-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.captcha-control :deep(.van-cell) {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #ebedf0;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.captcha-control :deep(.van-cell::after) {
+  display: none;
+}
+
+.captcha-control :deep(.van-field__control) {
+  height: 38px;
+  line-height: 38px;
+}
+
+.captcha-image {
+  flex: 0 0 125px;
+  width: 125px;
+  height: 40px;
+  object-fit: contain;
+  border: 1px solid #ebedf0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.captcha-hint {
+  padding: 6px 16px 0;
+  color: #969799;
+  font-size: 12px;
+  text-align: right;
+}
+
+.upload-progress-dialog {
+  width: 100%;
+}
+
+.upload-progress-dialog-title {
+  color: #323233;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+  text-align: center;
+}
+
+.upload-progress-dialog-file {
+  margin-top: 14px;
+  color: #646566;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.upload-progress-dialog-bar {
+  margin: 20px 0 10px;
+}
+
+.upload-progress-dialog-text {
+  color: #969799;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.upload-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .placeholder-panel {
