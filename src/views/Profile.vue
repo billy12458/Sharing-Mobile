@@ -146,6 +146,27 @@
             @click="openProfileSection('sessions')"
           />
         </van-cell-group>
+
+        <van-cell-group inset class="secondary-nav-card management-card">
+          <van-cell
+            :title="t('profile.accountManagement')"
+            class="section-title"
+          />
+
+          <van-cell
+            is-link
+            icon="photo-o"
+            :title="t('profile.changeAvatar')"
+            @click="chooseAvatar"
+          />
+        </van-cell-group>
+        <input
+          ref="avatarInput"
+          class="avatar-input"
+          type="file"
+          accept="image/png,image/jpeg,image/jpg"
+          @change="updateAvatar"
+        />
       </template>
 
       <van-empty v-else :description="t('profile.loadFailed')" />
@@ -251,6 +272,7 @@ import {
 } from '@/api/profile'
 
 import { getIsLogin } from '@/api/user'
+import api from '@/api/client'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -263,6 +285,8 @@ const followsCount = ref(0)
 
 const signDisabled = ref(false)
 const signLoading = ref(false)
+
+const avatarInput = ref<HTMLInputElement | null>(null)
 
 const locationVisible = ref(false)
 
@@ -595,6 +619,135 @@ function openProfileSection(
   router.push(path)
 }
 
+function chooseAvatar() {
+  avatarInput.value?.click()
+}
+
+async function updateAvatar(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) {
+    return
+  }
+  try {
+    const avatarFile = await resizeAvatar(
+      file,
+      200,
+      200,
+    )
+    const form = new FormData()
+    form.append(
+      'userAvatar',
+      avatarFile,
+    )
+    const response = await api.post(
+      '/user/update/avatar',
+      form,
+      {
+        headers: {
+          'Content-Type':
+            'multipart/form-data',
+        },
+      },
+    )
+    if (response.data?.status !== 200) {
+      throw new Error(
+        response.data?.msg ||
+        t('profile.avatarUpdateFailed'),
+      )
+    }
+    await loadProfile()
+    showSuccessToast(
+      t('profile.avatarUpdateSuccess'),
+    )
+  } catch (error: any) {
+    showFailToast(
+      error?.message ||
+      t('profile.avatarUpdateFailed'),
+    )
+  } finally {
+    target.value = ''
+  }
+}
+
+function resizeAvatar(
+  file: File,
+  width: number,
+  height: number,
+): Promise<File> {
+  return new Promise(
+    (resolve, reject) => {
+      const img = new Image()
+      const url =
+        URL.createObjectURL(file)
+      img.onload = () => {
+        const canvas =
+          document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(
+            new Error(
+              'Canvas unavailable'
+            )
+          )
+          return
+        }
+        const size =
+          Math.min(
+            img.width,
+            img.height,
+          )
+        const sx =
+          (img.width - size) / 2
+        const sy =
+          (img.height - size) / 2
+        ctx.drawImage(
+          img,
+          sx,
+          sy,
+          size,
+          size,
+          0,
+          0,
+          width,
+          height,
+        )
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(
+                new Error(
+                  'Image compress failed'
+                )
+              )
+              return
+            }
+            const result =
+              new File(
+                [
+                  blob
+                ],
+                file.name,
+                {
+                  type:
+                    'image/jpeg',
+                },
+              )
+            resolve(result)
+          },
+          'image/jpeg',
+          0.88,
+        )
+        URL.revokeObjectURL(url)
+      }
+      img.onerror = reject
+      img.src = url
+    },
+  )
+}
+
 function showLocation() {
   locationVisible.value = true
 }
@@ -619,6 +772,10 @@ onMounted(loadProfile)
 </script>
 
 <style scoped>
+.avatar-input {
+  display: none;
+}
+
 .profile-page {
   min-height: 100%;
   padding: 16px 12px 28px;
