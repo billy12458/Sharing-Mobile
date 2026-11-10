@@ -283,6 +283,7 @@
               :disabled="uploading"
               :deletable="!uploading"
               accept="text/*,image/*,application/*"
+              upload-icon="description"
               :after-read="handleUploadFile"
               :before-delete="handleUploadDelete"
             />

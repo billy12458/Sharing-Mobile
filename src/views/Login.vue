@@ -13,7 +13,7 @@
       <MfaLogin v-else-if="activeTab === 1" @success="handleLoginSuccess" @forgot-password="handleForgotPassword"
         @register="handleRegister" />
 
-      <van-empty v-else :description="$t('login.thirdPartyComingSoon')" />
+      <ThirdPartyLogin v-else @success="handleLoginSuccess" />
     </div>
   </MobileLayout>
 </template>
@@ -25,6 +25,7 @@ import { useRouter } from 'vue-router'
 import MobileLayout from '@/layouts/MobileLayout.vue'
 import NormalLogin from '@/components/login/NormalLogin.vue'
 import MfaLogin from '@/components/login/MfaLogin.vue'
+import ThirdPartyLogin from '@/components/login/ThirdPartyLogin.vue'
 
 const router = useRouter()
 

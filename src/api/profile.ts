@@ -64,3 +64,26 @@ export async function signInToday(): Promise<boolean> {
 export async function updateMyProfile(profile: ProfileUpdate) {
   return api.post<ApiResponse<null>>("/user/update", profile);
 }
+
+export interface EmailSendPayload {
+  email: string
+}
+
+export interface EmailUpdatePayload {
+  email: string
+  code: string
+}
+
+export async function sendEmailCode(email: string) {
+  return api.post<ApiResponse<null>>(
+    '/forget/send/email',
+    { email } as EmailSendPayload,
+  )
+}
+
+export async function updateEmail(payload: EmailUpdatePayload) {
+  return api.post<ApiResponse<null>>(
+    '/forget/update/email',
+    payload,
+  )
+}

@@ -159,6 +159,13 @@
             :title="t('profile.changeAvatar')"
             @click="chooseAvatar"
           />
+
+          <van-cell
+            is-link
+            icon="envelop-o"
+            :title="t('profile.changeEmail')"
+            @click="openEmailDialog"
+          />
         </van-cell-group>
         <input
           ref="avatarInput"
@@ -167,6 +174,80 @@
           accept="image/png,image/jpeg,image/jpg"
           @change="updateAvatar"
         />
+
+        <van-dialog v-model:show="emailVisible" :title="t('profile.changeEmail')" 
+        :show-cancel-button="false" :show-confirm-button="false">
+          <van-form id="email-form" @submit="saveEmail">
+            <div class="email-form">
+              <van-field
+                v-model="emailForm.email"
+                name="email"
+                type="text"
+                :label="t('profile.email')"
+                :placeholder="t('profile.emailPlaceholder')"
+                clearable
+                maxlength="64"
+                :rules="[
+                  {
+                    validator: validateEmail,
+                    message: t('profile.emailInvalid'),
+                  },
+                ]"
+              />
+
+              <van-field
+                v-model="emailForm.code"
+                name="code"
+                type="text"
+                :label="t('profile.emailCode')"
+                :placeholder="t('profile.emailCodePlaceholder')"
+                clearable
+                maxlength="8"
+                :rules="[
+                  {
+                    required: true,
+                    message: t('profile.emailCodeRequired'),
+                  },
+                ]"
+              >
+                <template #button>
+                  <van-button
+                    size="small"
+                    type="primary"
+                    plain
+                    :disabled="emailCodeDisabled"
+                    :loading="emailSending"
+                    @click.prevent.stop="handleSendEmailCode"
+                  >
+                    {{ emailCodeLabel }}
+                  </van-button>
+                </template>
+              </van-field>
+            </div>
+          </van-form>
+
+          <div class="email-actions">
+            <van-button
+              type="primary"
+              block
+              round
+              native-type="submit"
+              form="email-form"
+              :loading="emailSaving"
+            >
+              {{ t('profile.emailConfirm') }}
+            </van-button>
+
+            <van-button
+              block
+              round
+              class="email-cancel-button"
+              @click="emailCancel"
+            >
+              {{ t('profile.emailCancel') }}
+            </van-button>
+          </div>
+        </van-dialog>
       </template>
 
       <van-empty v-else :description="t('profile.loadFailed')" />
@@ -266,7 +347,9 @@ import {
   getMyFansAndFollows,
   getMyProfile,
   getTodaySign,
+  sendEmailCode,
   signInToday,
+  updateEmail,
   updateMyProfile,
   type Profile,
 } from '@/api/profile'
@@ -293,6 +376,25 @@ const locationVisible = ref(false)
 const editVisible = ref(false)
 const editSaving = ref(false)
 const sexPickerVisible = ref(false)
+
+const emailVisible = ref(false)
+const emailSending = ref(false)
+const emailSaving = ref(false)
+const emailCodeDisabled = ref(false)
+const emailCountdown = ref(0)
+let emailTimer: ReturnType<typeof setInterval> | null = null
+
+const emailForm = reactive({
+  email: '',
+  code: '',
+})
+
+const emailCodeLabel = computed(() => {
+  if (emailCountdown.value > 0) {
+    return t('profile.emailCountdown', { seconds: emailCountdown.value })
+  }
+  return t('profile.emailGetCode')
+})
 
 const editForm = reactive({
   userName: '',
@@ -748,6 +850,144 @@ function resizeAvatar(
   )
 }
 
+function validateEmail(value: string) {
+  return /^([a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+((\.[a-zA-Z0-9_-]{2,3}){1,2})$/.test(
+    value,
+  )
+}
+
+function stopEmailTimer() {
+  if (emailTimer) {
+    clearInterval(emailTimer)
+    emailTimer = null
+  }
+}
+
+function openEmailDialog() {
+  emailForm.email = profile.value?.email || ''
+  emailForm.code = ''
+  emailVisible.value = true
+}
+
+function startEmailCountdown(seconds: number) {
+  stopEmailTimer()
+  emailCodeDisabled.value = true
+  emailCountdown.value = seconds
+
+  emailTimer = setInterval(() => {
+    emailCountdown.value -= 1
+
+    if (emailCountdown.value <= 0) {
+      stopEmailTimer()
+      emailCodeDisabled.value = false
+      emailCountdown.value = 0
+      return
+    }
+
+    emailCodeDisabled.value = true
+  }, 1000)
+}
+
+async function handleSendEmailCode() {
+  if (emailSending.value) return
+
+  const email = emailForm.email.trim()
+
+  if (!email) {
+    showFailToast(t('profile.emailRequired'))
+    return
+  }
+
+  if (!validateEmail(email)) {
+    showFailToast(t('profile.emailInvalid'))
+    return
+  }
+
+  // 无论后端是否成功，都立即从 120 秒开始倒计时。
+  startEmailCountdown(120)
+
+  emailSending.value = true
+
+  try {
+    const response = await sendEmailCode(email)
+
+    if (response.data?.status === 200) {
+      showSuccessToast(t('profile.emailSendSuccess'))
+    } else {
+      showFailToast(
+        typeof response.data?.msg === 'string'
+          ? response.data.msg
+          : t('profile.emailSendFailed'),
+      )
+    }
+  } catch (error: any) {
+    const msg =
+      typeof error?.response?.data?.msg === 'string'
+        ? error.response.data.msg
+        : null
+    showFailToast(msg || t('profile.emailSendFailed'))
+  } finally {
+    emailSending.value = false
+  }
+}
+
+function emailCancel() {
+  stopEmailTimer()
+  emailVisible.value = false
+}
+
+async function saveEmail() {
+  if (emailSaving.value) return
+
+  if (!emailForm.email.trim()) {
+    showFailToast(t('profile.emailRequired'))
+    return
+  }
+
+  if (!validateEmail(emailForm.email.trim())) {
+    showFailToast(t('profile.emailInvalid'))
+    return
+  }
+
+  if (!emailForm.code.trim()) {
+    showFailToast(t('profile.emailCodeRequired'))
+    return
+  }
+
+  emailSaving.value = true
+
+  try {
+    const response = await updateEmail({
+      email: emailForm.email.trim(),
+      code: emailForm.code.trim(),
+    })
+
+    if (response.data?.status === 200) {
+      stopEmailTimer()
+      emailVisible.value = false
+      showSuccessToast(t('profile.emailSaveSuccess'))
+      await loadProfile()
+      return
+    }
+
+    showFailToast(
+      typeof response.data?.msg === 'string'
+        ? response.data.msg
+        : t('profile.emailSaveFailed'),
+    )
+    return
+  } catch (error: any) {
+    const msg =
+      typeof error?.response?.data?.msg === 'string'
+        ? error.response.data.msg
+        : null
+    showFailToast(msg || t('profile.emailSaveFailed'))
+    return
+  } finally {
+    emailSaving.value = false
+  }
+}
+
 function showLocation() {
   locationVisible.value = true
 }
@@ -905,6 +1145,23 @@ onMounted(loadProfile)
   max-height: 70vh;
   overflow-y: auto;
   padding: 4px 12px 16px;
+}
+
+.email-form {
+  padding: 4px 12px 0;
+}
+
+.email-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 16px;
+}
+
+.email-cancel-button {
+  background: #fff;
+  border: 1px solid #ebedf0;
+  color: #323233;
 }
 
 .edit-hint {
