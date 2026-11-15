@@ -253,7 +253,9 @@
         position="bottom"
         round
         :style="{ height: '78%' }"
-        :close-on-click-overlay="!uploading"
+        :close-on-click-overlay="
+          !uploading && !tagInferenceLoading
+        "
         :before-close="handleUploadBeforeClose"
         @open="handleUploadOpen"
         @closed="resetUploadState"
@@ -265,7 +267,7 @@
             </div>
 
             <van-icon
-              v-if="!uploading"
+              v-if="!uploading && !tagInferenceLoading"
               name="cross"
               size="20"
               @click="showUpload = false"
@@ -280,8 +282,8 @@
             <van-uploader
               v-model="uploadList"
               :max-count="1"
-              :disabled="uploading"
-              :deletable="!uploading"
+              :disabled="uploading || tagInferenceLoading"
+              :deletable="!uploading && !tagInferenceLoading"
               accept="text/*,image/*,application/*"
               upload-icon="description"
               :after-read="handleUploadFile"
@@ -299,8 +301,15 @@
               <div class="upload-field-label">
                 {{ t('files.tags') }}
               </div>
-              <van-tag type="primary">
-                {{ t('files.defaultTag') }}
+              <span
+                v-if="tagInferenceLoading"
+                class="tag-inference-loading"
+              >
+                <van-loading size="14px" />
+                {{ t('files.inferringTag') }}
+              </span>
+              <van-tag v-else type="primary">
+                {{ uploadTag }}
               </van-tag>
             </div>
 
@@ -324,7 +333,7 @@
                   class="captcha-input"
                   :placeholder="t('files.captchaPlaceholder')"
                   clearable
-                  :disabled="uploading"
+                  :disabled="uploading || tagInferenceLoading"
                 />
 
                 <img
@@ -348,8 +357,13 @@
               <van-button
                 type="primary"
                 block
-                :loading="uploading"
-                :disabled="!selectedUploadFile || !uploadCode.trim() || captchaExpired"
+                :loading="uploading || tagInferenceLoading"
+                :disabled="
+                  !selectedUploadFile ||
+                  !uploadCode.trim() ||
+                  captchaExpired ||
+                  tagInferenceLoading
+                "
                 @click="submitSimpleUpload"
               >
                 {{ t('files.uploadAction') }}
@@ -358,7 +372,7 @@
               <van-button
                 block
                 plain
-                :disabled="uploading"
+                :disabled="uploading || tagInferenceLoading"
                 @click="showUpload = false"
               >
                 {{ t('common.cancel') }}
@@ -430,6 +444,8 @@ import {
 } from '@/api/myFiles'
 
 import api from '@/api/client'
+import { inferFileTag } from '@/api/fileTags'
+import { DEFAULT_TAG, type FileTag } from '@/constants/tags'
 import { rowDownload } from '@/utils/download'
 
 const { t } = useI18n()
@@ -486,6 +502,8 @@ const uploading = ref(false)
 const uploadProgressVisible = ref(false)
 const uploadFilename = ref('')
 const uploadProgress = ref(0)
+const uploadTag = ref<FileTag>(DEFAULT_TAG)
+const tagInferenceLoading = ref(false)
 
 const searchActive = ref(false)
 const searchCriteria = ref<MyFileSearch>({
@@ -715,7 +733,11 @@ async function handleUploadOpen() {
 }
 
 function handleUploadBeforeClose() {
-  return !uploading.value && !uploadProgressVisible.value
+  return (
+    !uploading.value &&
+    !uploadProgressVisible.value &&
+    !tagInferenceLoading.value
+  )
 }
 
 function handleUploadFile(fileItem: any) {
@@ -727,15 +749,21 @@ function handleUploadFile(fileItem: any) {
   }
 
   selectedUploadFile.value = file
+  uploadTag.value = DEFAULT_TAG
 }
 
 function handleUploadDelete() {
   selectedUploadFile.value = null
+  uploadTag.value = DEFAULT_TAG
   return true
 }
 
 function resetUploadState() {
-  if (uploading.value || uploadProgressVisible.value) return
+  if (
+    uploading.value ||
+    uploadProgressVisible.value ||
+    tagInferenceLoading.value
+  ) return
 
   clearCaptchaTimer()
   uploadList.value = []
@@ -747,9 +775,13 @@ function resetUploadState() {
   uploadUserName.value = ''
   uploadFilename.value = ''
   uploadProgress.value = 0
+  uploadTag.value = DEFAULT_TAG
+  tagInferenceLoading.value = false
 }
 
 async function submitSimpleUpload() {
+  if (uploading.value || tagInferenceLoading.value) return
+
   const file = selectedUploadFile.value
 
   if (!file) {
@@ -788,6 +820,18 @@ async function submitSimpleUpload() {
       )
     }
 
+    tagInferenceLoading.value = true
+
+    try {
+      uploadTag.value = await inferFileTag(file.name)
+    } catch (error) {
+      // 标签推断失败不应阻断文件上传，保持默认标签。
+      console.warn('Tag inference failed, using default tag:', error)
+      uploadTag.value = DEFAULT_TAG
+    } finally {
+      tagInferenceLoading.value = false
+    }
+
     let userName = uploadUserName.value
 
     if (!userName) {
@@ -815,7 +859,7 @@ async function submitSimpleUpload() {
       password: null,
       code: uploadCode.value.trim(),
       expire: '',
-      tags: ['其他'],
+      tags: [uploadTag.value],
     })
 
     const form = new FormData()
@@ -1322,6 +1366,14 @@ onBeforeUnmount(() => {
   min-width: 42px;
   color: #323233;
   font-size: 14px;
+}
+
+.tag-inference-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #969799;
+  font-size: 13px;
 }
 
 .upload-description {

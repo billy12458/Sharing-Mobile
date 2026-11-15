@@ -29,4 +29,6 @@ export const tags = [
   "其他",
 ] as const;
 
+export type FileTag = (typeof tags)[number];
+
 export const DEFAULT_TAG = "其他";
