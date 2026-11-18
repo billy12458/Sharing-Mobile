@@ -40,6 +40,8 @@
           @report="handleReport"
         />
 
+        <FileComments :file-id="fileId" />
+
         <van-dialog
           v-model:show="passwordDialogVisible"
           :title="t('fileDetail.password')"
@@ -80,6 +82,7 @@ import MobileLayout from '@/layouts/MobileLayout.vue'
 import RecommendFileList from '@/components/RecommendFileList.vue'
 import FileDetailMain from '@/components/file-detail/FileDetailMain.vue'
 import FileDetailActions from '@/components/file-detail/FileDetailActions.vue'
+import FileComments from '@/components/file-detail/FileComments.vue'
 
 import api from '@/api/client'
 import { rowDownload } from '@/utils/download'
